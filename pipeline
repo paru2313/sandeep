@@ -1,0 +1,72 @@
+pipeline {
+    agent any
+  environment {
+  PATH = "/opt/maven/bin:$PATH"
+}    
+    stages {
+        stage('Hello') {
+            steps {
+                echo 'Hello World'
+            }
+        }
+        stage('checkout') {
+            steps {
+                checkout(
+				[
+				$class: 'GitSCM', branches: [
+				[
+				name: "*/master"
+				]
+				],
+				extensions: [
+				],
+				userRemoteConfigs: [
+				[
+				credentialsId: 'sandeep',
+				url: 'https://github.com/paru2313/sandeep.git']]])
+            }
+        }
+        stage('buld'){
+            steps{
+                sh 'mvn clean package'
+            }
+        }
+        stage('artifactory uplode'){
+            steps{
+                script{
+              def mavenPom = readMavenPom file: 'pom.xml'
+                nexusArtifactUploader artifacts: 
+                [
+                    [
+                        artifactId: 'helloworld',
+                        classifier: '',
+                        file: "target/helloworld-${mavenPom.version}.war",
+                        type: 'war'
+                        ]
+                        ],
+                        credentialsId: 'nexus--cred',
+                        groupId: 'com.efsavage',
+                        nexusUrl: '65.2.123.62:8081',
+                        nexusVersion: 'nexus3',
+                        protocol: 'http',
+                        repository: 'vinodnew',
+                        version: "${mavenPom.version}"
+            }
+            }
+        }
+        stage("deploy"){
+            steps{
+                deploy adapters: 
+				[
+				tomcat9(
+				credentialsId: 'tomcat--cred',
+				path: '', 
+				url: 'http://3.110.175.252:8080'
+				)
+				], 
+				contextPath: 'raju',
+				war: '**/*.war'
+            }
+        }
+    }
+}
